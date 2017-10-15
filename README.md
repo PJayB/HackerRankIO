@@ -39,8 +39,8 @@ In the current directory, create two text files:
 Create, build and debug your solution in your favorite programming environment. For example, GCC:
 
 ```bash
-gcc -DHACKERRANK -o my-solution my-solution.c
-./my-solution
+> gcc -DHACKERRANK -o my-solution my-solution.c
+> ./my-solution
 ```
 
 If your built solution runs to completion, your solution passed the given test case. If it asserts, the output from your solution diverged from `output.txt`.

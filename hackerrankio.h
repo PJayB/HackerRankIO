@@ -2,6 +2,56 @@
 
 #include <assert.h>
 #include <stdarg.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <memory.h>
+#ifdef _MSC_VER
+#   include <malloc.h>
+#endif
+#include <string.h>
+#include <stdlib.h>
+
+#ifdef _MSC_VER
+int hc_vsnprintf(char * s, size_t n, const char * format, va_list arg ) {
+    return _vsnprintf_c_l(s, n, format, arg);
+}
+int hc_vscprintf(const char * format, va_list arg ) {
+    return _vscprintf_l(format, NULL, arg);
+}
+int hc_vfscanf(FILE * stream, const char * format, va_list arg) {
+    return _vfscanf_l(stream, format, NULL, arg);
+}
+int hc_vfprintf(FILE * stream, const char * format, va_list arg) {
+    return _vfprintf_l(stream, format, NULL, arg);
+}
+#else
+int hc_vsnprintf(char * s, size_t n, const char * format, va_list arg) {
+    return vsnprintf(s, n, format, arg);
+}
+int hc_vscprintf(const char * format, va_list arg ) {
+    char buf[256];
+    return vsnprintf(buf, sizeof(buf), format, arg);
+}
+int hc_vfscanf(FILE * stream, const char * format, va_list arg) {
+    return vfscanf(stream, format, arg);
+}
+int hc_vfprintf(FILE * stream, const char * format, va_list arg) {
+    return vfprintf(stream, format, arg);
+}
+int fopen_s(FILE** f, const char* fn, const char* m) {
+    *f = fopen(fn, m);
+    return *f != NULL;
+}
+#endif
+
+void debug(const char* fmt, ...) {
+    va_list argList;
+    va_start(argList, fmt);
+    hc_vfprintf(stderr, fmt, argList);
+    va_end(argList);
+}
+
+
 
 #ifdef __cplusplus
 #   include <iostream>
@@ -98,66 +148,68 @@ private:
 static inputOutputOverride g_ioOverride;
 
 #else
-#   include <stdio.h>
-#   include <ctype.h>
-#   include <memory.h>
-#   ifdef _MSC_VER
-#      include <malloc.h>
-#   endif
-#   include <string.h>
-
-static FILE* inputFile = NULL;
-static FILE* outputFile = NULL;
-
-#ifdef _MSC_VER
-#   define hc_vsnprintf _vsnprintf_c_l
-#else
-#   define hc_vsnprintf vsnprintf
-#endif
+static FILE* hc_inputFile = NULL;
+static FILE* hc_outputFile = NULL;
+static int hc_failures = 0;
 
 int __cdecl hcprintf(char const* const format, ...)
 {
     va_list argList;
     int result, length;
     va_start(argList, format);
-    length = _vscprintf_l(format, NULL, argList);
+    length = hc_vscprintf(format, argList);
     if (length > 0) {
+#ifndef _MSC_VER
+        va_end(argList);
+        va_start(argList, format);
+#endif
+
         char* out = NULL, * in = NULL;
         size_t readSize, readResult = 0;
+        int different;
 
         // format the buffer
         out = (char*)malloc(length + 1);
         assert(out != NULL);
-        result = hc_vsnprintf(out, length + 1, format, NULL, argList);
+        result = hc_vsnprintf(out, length + 1, format, argList);
         assert(result >= 0);
 
         // read the same number of characters from the output file
         readSize = strlen(out);
-        in = (char*)malloc(readSize);
+        in = (char*)malloc(readSize+1);
         assert(in != NULL);
-        while (!feof(outputFile) && readResult < readSize) {
-            size_t r = fread(in + readResult, 1, readSize - readResult, outputFile);
+        while (!feof(hc_outputFile) && readResult < readSize) {
+            size_t r = fread(in + readResult, 1, readSize - readResult, hc_outputFile);
             if (r == 0) {
                 break;
             }
             readResult += r;
         }
+        in[readResult] = 0;
 
         // trim any whitespace off the end
-        if (feof(outputFile) && readResult < readSize) {
+        if (feof(hc_outputFile) && readResult < readSize) {
             for (size_t i = readResult; i < readSize; ++i) {
-                assert(isspace(out[i]));
+                if (!isspace(out[i])) {
+                    hc_failures++;
+                }
             }
             readSize = readResult;
         }
 
         // compare the results
         assert(readResult >= readSize);
-        assert(memcmp(in, out, readResult) == 0);
+        different = memcmp(in, out, readResult) != 0;
+        if (different) {
+            hc_failures++;
+        }
+
+        fprintf(stdout, "%s", out);
 
         free(in);
         free(out);
     }
+
     va_end(argList);
     return result;
 }
@@ -167,7 +219,7 @@ int __cdecl hcscanf(char const* const format, ...)
     int result;
     va_list argList;
     va_start(argList, format);
-    result = _vfscanf_l(inputFile, format, NULL, argList);
+    result = hc_vfscanf(hc_inputFile, format, argList);
     va_end(argList);
     return result;
 }
@@ -175,13 +227,49 @@ int __cdecl hcscanf(char const* const format, ...)
 int hcmain();
 
 int main() {
-    fopen_s(&inputFile, "input.txt", "r");
-    fopen_s(&outputFile, "output.txt", "r");
+    fopen_s(&hc_inputFile, "input.txt", "r");
+    fopen_s(&hc_outputFile, "output.txt", "r");
 
+    debug("------\n");
+    fflush(stderr);
     int r = hcmain();
+    fflush(stdout);
+    debug("\n------\n");
 
-    fclose(inputFile);
-    fclose(outputFile);
+    if (hc_failures) {
+        size_t size, read = 0;
+
+        debug("There were %d mismatches. Expected output:\n", hc_failures);
+        debug("------\n");
+        fseek(hc_outputFile, 0, SEEK_END);
+        size = ftell(hc_outputFile);
+        fseek(hc_outputFile, 0, SEEK_SET);
+
+        while (!feof(hc_outputFile) && read < size) {
+            char buf[256];
+            int r;
+            size_t sizeToRead = size - read;
+
+            if (sizeToRead > sizeof(buf)) {
+                sizeToRead = sizeof(buf);
+            }
+
+            r = fread(buf, 1, sizeToRead, hc_outputFile);
+            if (r == 0) {
+                break;
+            }
+            buf[r] = 0;
+            read += r;
+
+            debug("%s", buf);
+        }
+        debug("\n------\n");
+    } else {
+        debug("Pass.\n");
+    }
+
+    fclose(hc_inputFile);
+    fclose(hc_outputFile);
     return r;
 }
 
@@ -189,10 +277,3 @@ int main() {
 #   define scanf hcscanf
 #   define printf hcprintf
 #endif
-
-void debug(const char* fmt, ...) {
-    va_list argList;
-    va_start(argList, fmt);
-    _vfprintf_l(stdout, fmt, NULL, argList);
-    va_end(argList);
-}
