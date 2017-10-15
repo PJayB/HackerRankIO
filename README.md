@@ -124,3 +124,4 @@ Known Issues
 * Mixing `scanf`/`printf` with `std::cin`/`std::cout` is not supported.
 * The signature for `main` must be `int main()`. Command line arguments are not supported.
 * You can circumnavigate HackerRankIO by writing directly to `stdout` or reading from `stdin`. This is by design. Output written to `stdout` (e.g. `fputc`) is not subject to solution validation.
+* The C implementation is far more robust and helpful than the C++ implementation right now. Working on it!
