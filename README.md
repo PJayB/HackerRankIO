@@ -3,9 +3,7 @@ HackerRank I/O
 
 Enables offline development and verification of HackerRank (https://www.hackerrank.com/) solutions written in C or C++. It is designed so that your code can be used -- with as little modification as possible -- in both an offline setup and HackerRank's online editor.
 
-This header redirects `scanf` or `std::cin` so that your HackerRank code will be read from `input.txt` instead of from the keyboard. 
-
-Similarly, `printf` and `std::cout` are intercepted so that everything you print will be compared to the contents of `output.txt`. An assert is thrown when your input does not match the expected results.
+This header redirects `scanf` or `std::cin` so that your HackerRank code will be read from `input.txt` instead of from the keyboard. Similarly, `printf` and `std::cout` are intercepted so that everything you print will be compared to the contents of `output.txt`. When your input does not match the expected results, the program will tell you.
 
 License
 -------
