@@ -1,7 +1,7 @@
 HackerRank I/O
 ==============
 
-Enables offline development and verification of HackerRank solutions written in C or C++. It is designed with minimal code changes in mind.
+Enables offline development and verification of HackerRank (https://www.hackerrank.com/) solutions written in C or C++. It is designed so that your code can be used -- with as little modification as possible -- in both an offline setup and HackerRank's online editor.
 
 This header redirects `scanf` or `std::cin` so that your HackerRank code will be read from `input.txt` instead of from the keyboard. 
 
