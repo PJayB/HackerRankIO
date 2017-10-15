@@ -101,7 +101,9 @@ static inputOutputOverride g_ioOverride;
 #   include <stdio.h>
 #   include <ctype.h>
 #   include <memory.h>
-#   include <malloc.h>
+#   ifdef _MSC_VER
+#      include <malloc.h>
+#   endif
 #   include <string.h>
 
 static FILE* inputFile = NULL;

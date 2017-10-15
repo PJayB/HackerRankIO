@@ -117,3 +117,9 @@ int main() {
 > ./missing-numbers
 >
 ```
+
+Known Issues
+============
+* This only supports Windows right now. Other platforms coming soon!
+* Mixing `scanf`/`printf` with `std::cin`/`std::cout` is not supported. (Also coming soon.)
+* The signature for `main` must be `int main()`. Command line arguments are not supported.
