@@ -115,7 +115,11 @@ int main() {
 ```bash
 > gcc -DHACKERRANK -o missing-numbers missing-numbers.c
 > ./missing-numbers
->
+------
+3670 3674 3677 3684 3685 3695 3714 3720
+------
+Pass.
+> 
 ```
 
 Known Issues
