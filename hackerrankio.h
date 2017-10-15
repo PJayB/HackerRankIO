@@ -51,103 +51,6 @@ void debug(const char* fmt, ...) {
     va_end(argList);
 }
 
-
-
-#ifdef __cplusplus
-#   include <iostream>
-#   include <string>
-#   include <exception>
-#   include <fstream>
-
-class inputOutputOverride {
-public:
-    class verified_stream : public std::basic_streambuf<char, std::char_traits<char> > {
-    public:
-        typedef std::basic_streambuf<char, std::char_traits<char> > basestream;
-        typedef basestream::char_type char_type;
-        typedef basestream::int_type int_type;
-
-        verified_stream(const char* fn)
-            : _src(fn, std::ios::in)
-        {
-            assert(_src.is_open());
-        }
-
-        int_type sputc(char_type b) {
-            char_type a = _src.get();
-            assert(a == b);
-            return a;
-        }
-        
-        int_type sputbackc(char_type _Ch) {
-            throw;
-        }
-        int_type sungetc() {
-            throw;
-        }
-
-        bool is_open() {
-            return _src.is_open();
-        }
-
-    protected:
-        virtual int_type overflow(int_type c) {
-            if (c < 0) {
-                return basestream::traits_type::eof();
-            } else {
-                char_type a = _src.get();
-                if (isspace(c) && _src.eof()) {
-                    return basestream::traits_type::eof();
-                }
-                assert(a == (char_type)c);
-                return c;
-            }
-        }
-
-        virtual std::streamsize xsputn(const char_type *data, std::streamsize count) {
-            if (count > 0) {
-                char_type* comp = new char_type[(size_t)count];
-                _src.get(comp, count);
-                assert(memcmp(comp, data, (size_t)count) == 0);
-                delete[] comp;
-            }
-            return count;
-        }
-
-        void pbump(int _Off) {
-            throw;
-        }
-        void setp(char_type *_First, char_type *_Last) {
-            throw;
-        }
-        void setp(char_type *_First, char_type *_Next, char_type *_Last) {
-            throw;
-        }
-
-    private:
-        std::fstream _src;
-    };
-
-    inputOutputOverride()
-        : _input("input.txt", std::ios::in)
-        , _output("output.txt")
-    {
-        assert(_input.is_open());
-        assert(_output.is_open());
-
-        // redirect cout, cin
-        std::cin.rdbuf(_input.rdbuf());
-        std::cout.rdbuf(&_output);
-    }
-
-private:
-    std::fstream _input;
-    verified_stream _output;
-};
-
-static inputOutputOverride g_ioOverride;
-
-#else
 static FILE* hc_inputFile = NULL;
 static FILE* hc_outputFile = NULL;
 static int hc_failures = 0;
@@ -226,6 +129,23 @@ int __cdecl hcscanf(char const* const format, ...)
 
 int hcmain();
 
+int hc_checkTrailingOutput() {
+    // If the output file isn't at the end, it's likely we're missing some output
+    // Only reject non-whitespace characters
+    while (!feof(hc_outputFile)) {
+        char buf[32];
+        int read = fread(buf, 1, sizeof(buf), hc_outputFile);
+        if (read > 0) {
+            for (int i = 0; i < read; ++i) {
+                if (!isspace(buf[i])) {
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 int main() {
     fopen_s(&hc_inputFile, "input.txt", "r");
     fopen_s(&hc_outputFile, "output.txt", "r");
@@ -236,10 +156,12 @@ int main() {
     fflush(stdout);
     debug("\n------\n");
 
+    hc_failures += hc_checkTrailingOutput();
+
     if (hc_failures) {
         size_t size, read = 0;
 
-        debug("There were %d mismatches. Expected output:\n", hc_failures);
+        debug("Output is divergent from truth. Expected output:\n");
         debug("------\n");
         fseek(hc_outputFile, 0, SEEK_END);
         size = ftell(hc_outputFile);
@@ -273,7 +195,155 @@ int main() {
     return r;
 }
 
-#   define main hcmain
-#   define scanf hcscanf
-#   define printf hcprintf
+#define main hcmain
+#define scanf hcscanf
+#define printf hcprintf
+
+#ifdef __cplusplus
+#   include <iostream>
+#   include <string>
+#   include <exception>
+#   include <fstream>
+#   include <vector>
+
+class inputOutputOverride {
+public:
+    class verified_stream : public std::basic_streambuf<char, std::char_traits<char> > {
+    public:
+        typedef std::basic_streambuf<char, std::char_traits<char> > basestream;
+        typedef basestream::char_type char_type;
+        typedef basestream::int_type int_type;
+
+        verified_stream() {}
+
+    protected:
+        virtual int_type overflow(int_type c) {
+            if (c < 0) {
+                return basestream::traits_type::eof();
+            } else {
+                hcprintf("%c", c);
+                return c;
+            }
+        }
+
+        virtual std::streamsize xsputn(const char_type *data, std::streamsize count) {
+            if (count > 0) {
+                _buf.resize(count+1);
+                memcpy(_buf.data(), data, count);
+                _buf[count] = 0;
+                hcprintf("%s", _buf.data());
+            }
+            return count;
+        }
+
+        void pbump(int _Off) {
+            throw;
+        }
+        void setp(char_type *_First, char_type *_Last) {
+            throw;
+        }
+        void setp(char_type *_First, char_type *_Next, char_type *_Last) {
+            throw;
+        }
+
+    private:
+        std::vector<char_type> _buf;
+    };
+
+    class virtual_input_stream : public std::basic_streambuf<char, std::char_traits<char> > {
+    public:
+        typedef std::basic_streambuf<char, std::char_traits<char> > basestream;
+        typedef basestream::char_type char_type;
+        typedef basestream::int_type int_type;
+
+      /**
+       *  @brief  Alters the stream positions.
+       *
+       *  Each derived class provides its own appropriate behavior.
+       *  @note  Base class version does nothing, returns a @c pos_type
+       *         that represents an invalid stream position.
+      */
+      virtual pos_type 
+      seekoff(off_type, std::ios_base::seekdir,
+	      std::ios_base::openmode /*__mode*/ = std::ios_base::in | std::ios_base::out)
+      { throw; } 
+
+      /**
+       *  @brief  Alters the stream positions.
+       *
+       *  Each derived class provides its own appropriate behavior.
+       *  @note  Base class version does nothing, returns a @c pos_type
+       *         that represents an invalid stream position.
+      */
+      virtual pos_type 
+      seekpos(pos_type, 
+	      std::ios_base::openmode /*__mode*/ = std::ios_base::in | std::ios_base::out)
+      { throw; } 
+
+    protected:
+        virtual std::streamsize showmanyc() { 
+            long c = ftell(hc_inputFile);
+            fseek(hc_inputFile, 0, SEEK_END);
+            long e = ftell(hc_inputFile);
+            fseek(hc_inputFile, c, SEEK_SET);
+            return e - c; 
+        }
+
+        virtual int_type underflow() {
+            if (feof(hc_inputFile)) {
+                return traits_type::eof(); 
+            } else {
+                char_type p;
+                if (hcscanf("%c", &p) == 0) {
+                    return traits_type::eof();
+                }
+                debug("underflow: %c\n", p);
+                return p;
+            }
+        }
+
+        virtual int_type uflow() {
+            return underflow();
+        }        
+
+        virtual std::streamsize xsgetn(char_type *data, std::streamsize count) {
+            std::streamsize read = 0;
+            while (read < count && !feof(hc_inputFile)) {
+                int r = fread(data + read, 1, (size_t)(count - read), hc_inputFile);
+                if (r == 0) {
+                    break;
+                }
+                read += r;
+            }
+            return read;
+        }
+
+        void pbump(int _Off) {
+            throw;
+        }
+        void setp(char_type *_First, char_type *_Last) {
+            throw;
+        }
+        void setp(char_type *_First, char_type *_Next, char_type *_Last) {
+            throw;
+        }
+
+        virtual int_type pbackfail(int_type /* __c */  = traits_type::eof()) {
+            throw;
+        }
+    };
+
+    inputOutputOverride()
+    {
+        // redirect cout, cin
+        std::cin.rdbuf(&_input);
+        std::cout.rdbuf(&_output);
+    }
+
+private:
+    virtual_input_stream _input;
+    verified_stream _output;
+};
+
+static inputOutputOverride g_ioOverride;
 #endif
