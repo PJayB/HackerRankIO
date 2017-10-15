@@ -123,5 +123,6 @@ Pass.
 
 Known Issues
 ============
-* Mixing `scanf`/`printf` with `std::cin`/`std::cout` is not supported. (Coming soon.)
+* Mixing `scanf`/`printf` with `std::cin`/`std::cout` is not supported.
 * The signature for `main` must be `int main()`. Command line arguments are not supported.
+* You can circumnavigate HackerRankIO by writing directly to `stdout` or reading from `stdin`. This is by design. Output written to `stdout` (e.g. `fputc`) is not subject to solution validation.
