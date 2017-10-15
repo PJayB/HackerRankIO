@@ -61,9 +61,9 @@ void debug(const char* fmt, ...) {
 
 class inputOutputOverride {
 public:
-    class verified_stream : public std::basic_streambuf<char, std::char_traits<char>> {
+    class verified_stream : public std::basic_streambuf<char, std::char_traits<char> > {
     public:
-        typedef std::basic_streambuf<char, std::char_traits<char>> basestream;
+        typedef std::basic_streambuf<char, std::char_traits<char> > basestream;
         typedef basestream::char_type char_type;
         typedef basestream::int_type int_type;
 
@@ -73,16 +73,16 @@ public:
             assert(_src.is_open());
         }
 
-        int_type __CLR_OR_THIS_CALL sputc(char_type b) {
+        int_type sputc(char_type b) {
             char_type a = _src.get();
             assert(a == b);
             return a;
         }
         
-        int_type __CLR_OR_THIS_CALL sputbackc(char_type _Ch) {
+        int_type sputbackc(char_type _Ch) {
             throw;
         }
-        int_type __CLR_OR_THIS_CALL sungetc() {
+        int_type sungetc() {
             throw;
         }
 
@@ -91,7 +91,7 @@ public:
         }
 
     protected:
-        virtual int_type __CLR_OR_THIS_CALL overflow(int_type c) {
+        virtual int_type overflow(int_type c) {
             if (c < 0) {
                 return basestream::traits_type::eof();
             } else {
@@ -104,7 +104,7 @@ public:
             }
         }
 
-        virtual std::streamsize __CLR_OR_THIS_CALL xsputn(const char_type *data, std::streamsize count) {
+        virtual std::streamsize xsputn(const char_type *data, std::streamsize count) {
             if (count > 0) {
                 char_type* comp = new char_type[(size_t)count];
                 _src.get(comp, count);
@@ -114,13 +114,13 @@ public:
             return count;
         }
 
-        void __CLR_OR_THIS_CALL pbump(int _Off) {
+        void pbump(int _Off) {
             throw;
         }
-        void __CLR_OR_THIS_CALL setp(char_type *_First, char_type *_Last) {
+        void setp(char_type *_First, char_type *_Last) {
             throw;
         }
-        void __CLR_OR_THIS_CALL setp(char_type *_First, char_type *_Next, char_type *_Last) {
+        void setp(char_type *_First, char_type *_Next, char_type *_Last) {
             throw;
         }
 
