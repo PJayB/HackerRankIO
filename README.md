@@ -43,8 +43,7 @@ Create, build and debug your solution in your favorite programming environment. 
 > ./my-solution
 ```
 
-If your built solution runs to completion, your solution passed the given test case. If it asserts, the output from your solution diverged from `output.txt`.
-
+You will be notified of a either a pass, or of a divergence. In the latter case, the expected output will be printed.
 
 Example
 -------
@@ -124,6 +123,5 @@ Pass.
 
 Known Issues
 ============
-* This only supports Windows right now. Other platforms coming soon!
-* Mixing `scanf`/`printf` with `std::cin`/`std::cout` is not supported. (Also coming soon.)
+* Mixing `scanf`/`printf` with `std::cin`/`std::cout` is not supported. (Coming soon.)
 * The signature for `main` must be `int main()`. Command line arguments are not supported.
