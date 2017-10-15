@@ -38,7 +38,7 @@ In the current directory, create two text files:
 
 Create, build and debug your solution in your favorite programming environment. For example, GCC:
 
-```sh
+```bash
 gcc -DHACKERRANK -o my-solution my-solution.c
 ./my-solution
 ```
@@ -112,7 +112,7 @@ int main() {
 ```
 
 ### Running the Solution
-```sh
+```bash
 > gcc -DHACKERRANK -o missing-numbers missing-numbers.c
 > ./missing-numbers
 >

@@ -109,6 +109,12 @@ static inputOutputOverride g_ioOverride;
 static FILE* inputFile = NULL;
 static FILE* outputFile = NULL;
 
+#ifdef _MSC_VER
+#   define hc_vsnprintf _vsnprintf_c_l
+#else
+#   define hc_vsnprintf vsnprintf
+#endif
+
 int __cdecl hcprintf(char const* const format, ...)
 {
     va_list argList;
@@ -122,7 +128,7 @@ int __cdecl hcprintf(char const* const format, ...)
         // format the buffer
         out = (char*)malloc(length + 1);
         assert(out != NULL);
-        result = _vsnprintf_c_l(out, length + 1, format, NULL, argList);
+        result = hc_vsnprintf(out, length + 1, format, NULL, argList);
         assert(result >= 0);
 
         // read the same number of characters from the output file
